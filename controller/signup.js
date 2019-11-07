@@ -70,29 +70,28 @@ const signup = (userDetails, callback) => {
             if (createTokenErr) {
             } else {
               userDetailedInformation.VerificationToken = createTokenSuccess;
-            }
-          }
-        );
-
-        let userLoginInformation = {
-          UserId: userId,
-          UserName: UserName,
-          Password: encryptedPassword,
-          roleId: userDetails.roleId
-        };
-        userDetailsModel.create(
-          userDetailedInformation,
-          (saveUserDetailsErr, saveUserDetailsSuccess) => {
-            if (saveUserDetailsErr) {
-              callback(saveUserDetailsErr);
-            } else {
-              userModel.create(
-                userLoginInformation,
-                (saveUserErr, saveUserSuccess) => {
-                  if (saveUserErr) {
-                    callback(saveUserErr);
+              let userLoginInformation = {
+                UserId: userId,
+                UserName: UserName,
+                Password: encryptedPassword,
+                roleId: userDetails.roleId
+              };
+              userDetailsModel.create(
+                userDetailedInformation,
+                (saveUserDetailsErr, saveUserDetailsSuccess) => {
+                  if (saveUserDetailsErr) {
+                    callback(saveUserDetailsErr);
                   } else {
-                    callback(null, { msg: 'Data saved successfully' });
+                    userModel.create(
+                      userLoginInformation,
+                      (saveUserErr, saveUserSuccess) => {
+                        if (saveUserErr) {
+                          callback(saveUserErr);
+                        } else {
+                          callback(null, { msg: 'Data saved successfully' });
+                        }
+                      }
+                    );
                   }
                 }
               );
@@ -104,11 +103,44 @@ const signup = (userDetails, callback) => {
   });
 };
 
-const verifyUser = () => {};
+const verifyUser = (token, callback) => {
+  userDetailsModel.findOne(
+    { VerificationToken: token },
+    (findTokenError, findTokenSuccess) => {
+      if (findTokenError) {
+        callback(findTokenError);
+      } else {
+        if (
+          findTokenSuccess.VerificationToken !== 'null' &&
+          findTokenSuccess.IsVerifiedUser === 0
+        ) {
+          const myQuery = { VerificationToken: token };
+          const queryToUpdate = {
+            $set: { VerificationToken: 'null', IsVerifiedUser: 1 }
+          };
+          userDetailsModel.updateOne(
+            myQuery,
+            queryToUpdate,
+            (updateError, updateSuccess) => {
+              if (updateError) {
+                callback(updateError);
+              } else {
+                callback(null, { msg: 'user verified success' });
+              }
+            }
+          );
+        } else {
+          callback({ msg: 'Verification link expired' });
+        }
+      }
+    }
+  );
+};
 
 module.exports = {
   checkEmail,
-  signup
+  signup,
+  verifyUser
 };
 
 // checkEmail('joshi', (err, res) => {
